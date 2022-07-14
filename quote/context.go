@@ -211,8 +211,16 @@ func NewFromCfg(cfg *config.Config) (*QuoteContext, error) {
 // New return QuoteContext with option.
 // A connection will be created with quote server.
 func New(opt ...Option) (*QuoteContext, error) {
+	var (
+		core *core
+		err  error
+	)
 	opts := newOptions(opt...)
-	core, err := newCore(opts.QuoteURL, opts.HttpClient)
+	if opts.LBClient == nil {
+		core, err = newCore(opts.QuoteURL, opts.HttpClient)
+	} else {
+		core = newCoreWithClient(opts.QuoteURL, opts.LBClient)
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create core")
 	}

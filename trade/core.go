@@ -18,13 +18,13 @@ import (
 )
 
 type core struct {
-	client        *client.Client
+	client        client.Client
 	url           string
 	subscriptions []string
 	mu            sync.Mutex
 }
 
-func newCore(url string, httpClient *http.Client) (*core, error) {
+func newCore(url string, httpClient http.Client) (*core, error) {
 	getOTP := func() (string, error) {
 		otp, err := httpClient.GetOTP(context.Background())
 		if err != nil {
@@ -32,7 +32,9 @@ func newCore(url string, httpClient *http.Client) (*core, error) {
 		}
 		return otp, nil
 	}
-	cl := client.New()
+	logger := &protocol.DefaultLogger{}
+	logger.SetLevel(config.GetLogLevelFromEnv())
+	cl := client.New(client.WithLogger(logger))
 	err := cl.Dial(context.Background(), url, &protocol.Handshake{
 		Version:  1,
 		Codec:    protocol.CodecProtobuf,
@@ -41,9 +43,15 @@ func newCore(url string, httpClient *http.Client) (*core, error) {
 	if err != nil {
 		return nil, err
 	}
-	cl.Logger.SetLevel(config.GetLogLevelFromEnv())
-	core := &core{client: cl, url: url}
+	core := newCoreWithClient(url, cl)
 	return core, nil
+}
+
+func newCoreWithClient(url string, client client.Client) *core {
+	return &core{
+		client: client,
+		url:    url,
+	}
 }
 
 func (c *core) SetHandler(f func(*PushEvent)) {

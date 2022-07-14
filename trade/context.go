@@ -209,8 +209,16 @@ func NewFromCfg(cfg *config.Config) (*TradeContext, error) {
 // New return TradeContext with option.
 // A connection will be created with Trade server.
 func New(opt ...Option) (*TradeContext, error) {
+	var (
+		core *core
+		err  error
+	)
 	opts := newOptions(opt...)
-	core, err := newCore(opts.TradeURL, opts.HttpClient)
+	if opts.LBClient == nil {
+		core, err = newCore(opts.TradeURL, opts.HttpClient)
+	} else {
+		core = newCoreWithClient(opts.TradeURL, opts.LBClient)
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create core")
 	}

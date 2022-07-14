@@ -18,14 +18,14 @@ import (
 )
 
 type core struct {
-	client        *client.Client
+	client        client.Client
 	url           string
 	mu            sync.Mutex
 	subscriptions map[string][]SubType
 	store         *store
 }
 
-func newCore(url string, httpClient *http.Client) (*core, error) {
+func newCore(url string, httpClient http.Client) (*core, error) {
 	getOTP := func() (string, error) {
 		otp, err := httpClient.GetOTP(context.Background())
 		if err != nil {
@@ -33,7 +33,9 @@ func newCore(url string, httpClient *http.Client) (*core, error) {
 		}
 		return otp, nil
 	}
-	cl := client.New()
+	logger := &protocol.DefaultLogger{}
+	logger.SetLevel(config.GetLogLevelFromEnv())
+	cl := client.New(client.WithLogger(logger))
 	err := cl.Dial(context.Background(), url, &protocol.Handshake{
 		Version:  1,
 		Codec:    protocol.CodecProtobuf,
@@ -42,19 +44,22 @@ func newCore(url string, httpClient *http.Client) (*core, error) {
 	if err != nil {
 		return nil, err
 	}
-	cl.Logger.SetLevel(config.GetLogLevelFromEnv())
-	core := &core{
-		client:        cl,
-		url:           url,
-		subscriptions: make(map[string][]SubType),
-		store:         newStore(),
-	}
+	core := newCoreWithClient(url, cl)
 	core.client.AfterReconnected(func() {
 		if err := core.resubscribe(context.Background()); err != nil {
 			log.Error(err)
 		}
 	})
 	return core, nil
+}
+
+func newCoreWithClient(url string, client client.Client) *core {
+	return &core{
+		client:        client,
+		url:           url,
+		subscriptions: make(map[string][]SubType),
+		store:         newStore(),
+	}
 }
 
 func (c *core) SetQuoteHandler(f func(*PushQuote)) {

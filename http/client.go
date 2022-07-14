@@ -13,6 +13,21 @@ import (
 	"github.com/longbridgeapp/openapi-go/log"
 )
 
+// Client is a http client interface to access Longbridge REST OpenAPI
+type Client interface {
+	// Get sends Get request with queryParams
+	Get(ctx context.Context, path string, queryParams url.Values, resp interface{}) error
+	// Post sends Post request with json body
+	Post(ctx context.Context, path string, body interface{}, resp interface{}) error
+	// Put sends Put request with json body
+	Put(ctx context.Context, path string, body interface{}, resp interface{}) error
+	// Delete sends Delete request with queryParams
+	Delete(ctx context.Context, path string, queryParams interface{}, resp interface{}) error
+	// GetOTP to get one time password
+	// Reference: https://open.longbridgeapp.com/en/docs/socket-token-api
+	GetOTP(ctx context.Context) (string, error)
+}
+
 type apiResponse struct {
 	Code    int
 	Message string
@@ -23,35 +38,35 @@ type otpResponse struct {
 	Otp string
 }
 
-// Client is a http client to access Longbridge REST OpenAPI
-type Client struct {
+// client is a http client to access Longbridge REST OpenAPI
+type client struct {
 	opts       *Options
 	httpClient *nhttp.Client
 }
 
 // Get sends Get request with queryParams
-func (c *Client) Get(ctx context.Context, path string, queryParams url.Values, resp interface{}) error {
+func (c *client) Get(ctx context.Context, path string, queryParams url.Values, resp interface{}) error {
 	return c.Call(ctx, "GET", path, queryParams, nil, resp)
 }
 
 // Post sends Post request with json body
-func (c *Client) Post(ctx context.Context, path string, body interface{}, resp interface{}) error {
+func (c *client) Post(ctx context.Context, path string, body interface{}, resp interface{}) error {
 	return c.Call(ctx, "POST", path, nil, body, resp)
 }
 
 // Put sends Put request with json body
-func (c *Client) Put(ctx context.Context, path string, body interface{}, resp interface{}) error {
+func (c *client) Put(ctx context.Context, path string, body interface{}, resp interface{}) error {
 	return c.Call(ctx, "PUT", path, nil, body, resp)
 }
 
 // Delete sends Delete request with queryParams
-func (c *Client) Delete(ctx context.Context, path string, queryParams interface{}, resp interface{}) error {
+func (c *client) Delete(ctx context.Context, path string, queryParams interface{}, resp interface{}) error {
 	return c.Call(ctx, "DELETE", path, queryParams, nil, resp)
 }
 
 // GetOTP to get one time password
 // Reference: https://open.longbridgeapp.com/en/docs/socket-token-api
-func (c *Client) GetOTP(ctx context.Context) (string, error) {
+func (c *client) GetOTP(ctx context.Context) (string, error) {
 	res := &otpResponse{}
 	err := c.Get(ctx, "/v1/socket/token", nil, res)
 	if err != nil {
@@ -61,7 +76,7 @@ func (c *Client) GetOTP(ctx context.Context) (string, error) {
 }
 
 // Call will send request with signature to http server
-func (c *Client) Call(ctx context.Context, method, path string, queryParams interface{}, body interface{}, resp interface{}) (err error) {
+func (c *client) Call(ctx context.Context, method, path string, queryParams interface{}, body interface{}, resp interface{}) (err error) {
 	var (
 		br       io.Reader
 		bb       []byte
@@ -128,12 +143,12 @@ func (c *Client) Call(ctx context.Context, method, path string, queryParams inte
 }
 
 // New create http client to call Longbridge REST OpenAPI
-func New(opt ...Option) (*Client, error) {
+func New(opt ...Option) (Client, error) {
 	opts := newOptions(opt...)
 	if opts.URL == "" {
 		return nil, errors.New("http url is empty")
 	}
-	client := &Client{
+	client := &client{
 		opts:       opts,
 		httpClient: &nhttp.Client{Timeout: opts.Timeout},
 	}
